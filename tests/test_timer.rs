@@ -130,8 +130,11 @@ fn test_timeout_with_timeout_completes_first() {
 
     let to = timer.timeout(rx, dur);
 
-    let err: io::Error = to.wait().unwrap_err();
-    assert_eq!(io::ErrorKind::TimedOut, err.kind());
+    let err = to.wait().unwrap_err();
+    match err {
+        TimeoutError::TimedOut(_) => {},
+        _ => panic!(),
+    }
 }
 
 #[test]
@@ -157,8 +160,12 @@ fn test_timeout_with_future_errors_first() {
     });
 
     let err = to.wait().unwrap_err();
-
-    assert_eq!(io::ErrorKind::NotFound, err.kind());
+    match err {
+        TimeoutError::Inner(e) => {
+            assert_eq!(io::ErrorKind::NotFound, e.kind());
+        }
+        _ => panic!(),
+    }
 }
 
 #[test]
@@ -226,7 +233,10 @@ fn test_timeout_stream_with_timeout_completes_first() {
     assert_eq!("two", s.next().unwrap().unwrap());
 
     let err = s.next().unwrap().unwrap_err();
-    assert_eq!(io::ErrorKind::TimedOut, err.kind());
+    match err {
+        TimeoutError::TimedOut(_) => {},
+        _ => panic!(),
+    }
 }
 
 #[test]

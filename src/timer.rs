@@ -5,7 +5,7 @@ use wheel::{Token, Wheel};
 use futures::{Future, Stream, Async, Poll};
 use futures::task::{self, Task};
 
-use std::{fmt, io};
+use std::fmt;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
@@ -51,11 +51,13 @@ pub enum TimerError {
 
 /// The error type for timeout operations.
 #[derive(Clone)]
-pub enum TimeoutError<T> {
+pub enum TimeoutError<T, E> {
     /// An error caused by the timer
     Timer(T, TimerError),
     /// The operation timed out
     TimedOut(T),
+    /// Inner error
+    Inner(E),
 }
 
 pub fn build(builder: Builder) -> Timer {
@@ -82,9 +84,8 @@ impl Timer {
     /// If the given future completes within the given time, then the `Timeout`
     /// future will complete with that result. If `duration` expires, the
     /// `Timeout` future completes with a `TimeoutError`.
-    pub fn timeout<F, E>(&self, future: F, duration: Duration) -> Timeout<F>
-        where F: Future<Error = E>,
-              E: From<TimeoutError<F>>,
+    pub fn timeout<F>(&self, future: F, duration: Duration) -> Timeout<F>
+        where F: Future
     {
         Timeout {
             future: Some(future),
@@ -98,9 +99,8 @@ impl Timer {
     /// If the given stream yields a value within the allocated duration, then
     /// value is returned and the timeout is reset for the next value. If the
     /// `duration` expires, then the stream will error with a `TimeoutError`.
-    pub fn timeout_stream<T, E>(&self, stream: T, duration: Duration) -> TimeoutStream<T>
-        where T: Stream<Error = E>,
-              E: From<TimeoutError<T>>,
+    pub fn timeout_stream<T>(&self, stream: T, duration: Duration) -> TimeoutStream<T>
+        where T: Stream
     {
         TimeoutStream {
             stream: Some(stream),
@@ -295,19 +295,19 @@ impl<T> Timeout<T> {
 }
 
 impl<F, E> Future for Timeout<F>
-    where F: Future<Error = E>,
-          E: From<TimeoutError<F>>,
+    where F: Future<Error = E>
 {
     type Item = F::Item;
-    type Error = E;
+    type Error = TimeoutError<F, E>;
 
-    fn poll(&mut self) -> Poll<F::Item, E> {
+    fn poll(&mut self) -> Poll<F::Item, TimeoutError<F, E>> {
         // First, try polling the future
         match self.future {
             Some(ref mut f) => {
                 match f.poll() {
                     Ok(Async::NotReady) => {}
-                    v => return v,
+                    Ok(Async::Ready(v)) => return Ok(Async::Ready(v)),
+                    Err(e) => return Err(TimeoutError::Inner(e)),
                 }
             }
             None => panic!("cannot call poll once value is consumed"),
@@ -366,13 +366,12 @@ impl<T> TimeoutStream<T> {
 }
 
 impl<T, E> Stream for TimeoutStream<T>
-    where T: Stream<Error = E>,
-          E: From<TimeoutError<T>>,
+    where T: Stream<Error = E>
 {
     type Item = T::Item;
-    type Error = E;
+    type Error = TimeoutError<T, E>;
 
-    fn poll(&mut self) -> Poll<Option<T::Item>, E> {
+    fn poll(&mut self) -> Poll<Option<T::Item>, TimeoutError<T, E>> {
         // First, try polling the future
         match self.stream {
             Some(ref mut s) => {
@@ -384,8 +383,11 @@ impl<T, E> Stream for TimeoutStream<T>
 
                         // Return the value
                         return Ok(Async::Ready(Some(v)));
-                    }
-                    v => return v,
+                    },
+                    Ok(Async::Ready(None)) => {
+                        return Ok(Async::Ready(None));
+                    },
+                    Err(e) => return Err(TimeoutError::Inner(e)),
                 }
             }
             None => panic!("cannot call poll once value is consumed"),
@@ -429,19 +431,19 @@ impl Error for TimerError {
     }
 }
 
-impl<T> fmt::Display for TimeoutError<T> {
+impl<T, E: Error> fmt::Display for TimeoutError<T, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{}", Error::description(self))
     }
 }
 
-impl<T> fmt::Debug for TimeoutError<T> {
+impl<T, E: Error> fmt::Debug for TimeoutError<T, E> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{}", Error::description(self))
     }
 }
 
-impl<T> Error for TimeoutError<T> {
+impl<T, E: Error> Error for TimeoutError<T, E> {
     fn description(&self) -> &str {
         use self::TimerError::*;
         use self::TimeoutError::*;
@@ -450,35 +452,7 @@ impl<T> Error for TimeoutError<T> {
             Timer(_, TooLong) => "requested timeout too long",
             Timer(_, NoCapacity) => "timer out of capacity",
             TimedOut(_) => "the future timed out",
+            Inner(_) => "inner error",
         }
-    }
-}
-
-impl<T> From<TimeoutError<T>> for io::Error {
-    fn from(src: TimeoutError<T>) -> io::Error {
-        use self::TimerError::*;
-        use self::TimeoutError::*;
-
-        match src {
-            Timer(_, TooLong) => io::Error::new(io::ErrorKind::InvalidInput, "requested timeout too long"),
-            Timer(_, NoCapacity) => io::Error::new(io::ErrorKind::Other, "timer out of capacity"),
-            TimedOut(_) => io::Error::new(io::ErrorKind::TimedOut, "the future timed out"),
-        }
-    }
-}
-
-impl From<TimerError> for io::Error {
-    fn from(src: TimerError) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, src)
-    }
-}
-
-impl From<TimerError> for () {
-    fn from(_: TimerError) -> () {
-    }
-}
-
-impl<T> From<TimeoutError<T>> for () {
-    fn from(_: TimeoutError<T>) -> () {
     }
 }
