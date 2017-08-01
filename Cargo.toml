@@ -12,7 +12,7 @@ Timer facilities for Tokio
 """
 
 [lib]
-name = "tokio-timer"
+name = "tokio_timer"
 
 [dependencies]
 futures = "0.1"
