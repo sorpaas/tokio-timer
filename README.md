@@ -1,6 +1,6 @@
-# tokio-timer
+# tokio-timer-plus
 
-Timer facilities for Tokio
+Timer facilities for Tokio. This is a fork of `tokio-timer` that allows easier recovery for `Timeout` and `TimeoutStream` for the underlaying stream and future.
 
 [![Build Status](https://travis-ci.org/tokio-rs/tokio-timer.svg?branch=master)](https://travis-ci.org/tokio-rs/tokio-timer)
 [![Crates.io](https://img.shields.io/crates/v/tokio-timer.svg?maxAge=2592000)](https://crates.io/crates/tokio-timer)
@@ -14,7 +14,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tokio-timer = "0.1"
+tokio-timer-plus = "0.1"
 ```
 
 Next, add this to your crate:
