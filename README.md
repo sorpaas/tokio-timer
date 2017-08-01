@@ -2,11 +2,10 @@
 
 Timer facilities for Tokio. This is a fork of `tokio-timer` that allows easier recovery for `Timeout` and `TimeoutStream` for the underlaying stream and future.
 
-[![Build Status](https://travis-ci.org/tokio-rs/tokio-timer.svg?branch=master)](https://travis-ci.org/tokio-rs/tokio-timer)
-[![Crates.io](https://img.shields.io/crates/v/tokio-timer.svg?maxAge=2592000)](https://crates.io/crates/tokio-timer)
+[![Build Status](https://travis-ci.org/sorpaas/tokio-timer-plus.svg?branch=master)](https://travis-ci.org/sorpaas/tokio-timer-plus)
+[![Crates.io](https://img.shields.io/crates/v/tokio-timer-plus.svg?maxAge=2592000)](https://crates.io/crates/tokio-timer-plus)
 
-[Documentation](https://docs.rs/tokio-timer) |
-[Gitter](https://gitter.im/tokio-rs/tokio)
+[Documentation](https://docs.rs/tokio-timer-plus)
 
 ## Usage
 
